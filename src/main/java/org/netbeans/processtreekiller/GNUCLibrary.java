@@ -16,8 +16,8 @@ import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.StringArray;
+import com.sun.jna.Structure;
 import com.sun.jna.ptr.IntByReference;
-import org.jvnet.libpam.impl.CLibrary;
 
 public interface GNUCLibrary
 extends Library {
@@ -56,7 +56,7 @@ extends Library {
 
     public String strerror(int var1);
 
-    public CLibrary.passwd getpwuid(int var1);
+    public passwd getpwuid(int var1);
 
     public int fcntl(int var1, int var2);
 
@@ -71,5 +71,15 @@ extends Library {
     public int sysctl(int[] var1, int var2, Pointer var3, IntByReference var4, Pointer var5, IntByReference var6);
 
     public int sysctlnametomib(String var1, Pointer var2, IntByReference var3);
+
+    static class passwd extends Structure {
+        String pw_name;       /* username */
+        String pw_passwd;     /* user password */
+        int   pw_uid;        /* user ID */
+        int   pw_gid;        /* group ID */
+        String  pw_gecos;      /* user information */
+        String   pw_dir;        /* home directory */
+        String   pw_shell;      /* shell program */
+    };
 }
 
