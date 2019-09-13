@@ -21,22 +21,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
 package org.netbeans.processtreekiller;
 
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.netbeans.processtreekiller.VariableResolver;
 
-/*
- * This class specifies class file version 49.0 but uses Java 6 signatures.  Assumed Java 6.
- */
 public class Util {
+
     private static final Pattern VARIABLE = Pattern.compile("\\$([A-Za-z0-9_]+|\\{[A-Za-z0-9_]+\\}|\\$)");
 
     public static String replaceMacro(String s, Map<String, String> properties) {
-        return Util.replaceMacro(s, new VariableResolver.ByMap<String>(properties));
+        return replaceMacro(s, new VariableResolver.ByMap<>(properties));
     }
 
     public static String replaceMacro(String s, VariableResolver<String> resolver) {
@@ -73,4 +69,3 @@ public class Util {
         return s;
     }
 }
-

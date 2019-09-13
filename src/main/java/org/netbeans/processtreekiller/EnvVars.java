@@ -21,22 +21,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
 package org.netbeans.processtreekiller;
 
 import java.io.File;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
-import org.netbeans.processtreekiller.Util;
 
-/*
- * This class specifies class file version 49.0 but uses Java 6 signatures.  Assumed Java 6.
- */
-public class EnvVars
-extends TreeMap<String, String> {
+public class EnvVars extends TreeMap<String, String> {
+
     public static final Map<String, String> masterEnvVars = EnvVars.initMaster();
 
     public EnvVars() {
@@ -46,16 +39,13 @@ extends TreeMap<String, String> {
     public EnvVars(Map<String, String> m) {
         this();
         this.putAll(m);
-        if (m instanceof EnvVars) {
-            EnvVars envVars = (EnvVars)m;
-        }
     }
 
     public EnvVars(EnvVars m) {
-        this((Map<String, String>)m);
+        this((Map<String, String>) m);
     }
 
-    public EnvVars(String ... keyValuePairs) {
+    public EnvVars(String... keyValuePairs) {
         this();
         if (keyValuePairs.length % 2 != 0) {
             throw new IllegalArgumentException(Arrays.asList(keyValuePairs).toString());
@@ -73,7 +63,7 @@ extends TreeMap<String, String> {
         int idx = key.indexOf(43);
         if (idx > 0) {
             String realKey = key.substring(0, idx);
-            String v = (String)this.get(realKey);
+            String v = (String) this.get(realKey);
             if (v == null) {
                 v = value;
             } else {
@@ -115,4 +105,3 @@ extends TreeMap<String, String> {
         return vars;
     }
 }
-

@@ -31,12 +31,11 @@ import com.sun.jna.StringArray;
 import com.sun.jna.Structure;
 import com.sun.jna.ptr.IntByReference;
 
-public interface GNUCLibrary
-extends Library {
+public interface GNUCLibrary extends Library {
     public static final int F_GETFD = 1;
     public static final int F_SETFD = 2;
     public static final int FD_CLOEXEC = 1;
-    public static final GNUCLibrary LIBC = (GNUCLibrary)Native.loadLibrary((String)"c", GNUCLibrary.class);
+    public static final GNUCLibrary LIBC = Native.load((String)"c", GNUCLibrary.class);
 
     public int fork();
 
