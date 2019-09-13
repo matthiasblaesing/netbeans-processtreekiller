@@ -23,29 +23,26 @@ import java.io.FileFilter;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.io.Reader;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
 import org.jvnet.winp.WinProcess;
 import org.jvnet.winp.WinpException;
-import org.netbeans.processtreekiller.EnvVars;
-import org.netbeans.processtreekiller.GNUCLibrary;
-import org.netbeans.processtreekiller.Util;
+import org.netbeans.processtreekiller.ProcessTreeKiller.Darwin.DarwinSystem;
+import org.netbeans.processtreekiller.ProcessTreeKiller.Linux.LinuxSystem;
+import org.netbeans.processtreekiller.ProcessTreeKiller.Solaris.SolarisSystem;
+import org.netbeans.processtreekiller.ProcessTreeKiller.Unix.UnixSystem;
 
 /*
  * This class specifies class file version 49.0 but uses Java 6 signatures.  Assumed Java 6.
@@ -119,7 +116,7 @@ public abstract class ProcessTreeKiller {
     /*
      * This class specifies class file version 49.0 but uses Java 6 signatures.  Assumed Java 6.
      */
-    private static final class Darwin
+    static final class Darwin
     extends Unix<DarwinSystem> {
         private static final int sizeOf_kinfo_proc = 648;
         private static final int CTL_KERN = 1;
@@ -297,7 +294,7 @@ public abstract class ProcessTreeKiller {
     /*
      * This class specifies class file version 49.0 but uses Java 6 signatures.  Assumed Java 6.
      */
-    private static final class Solaris
+    static final class Solaris
     extends Unix<SolarisSystem> {
         private Solaris() {
             super();
@@ -477,7 +474,7 @@ public abstract class ProcessTreeKiller {
     /*
      * This class specifies class file version 49.0 but uses Java 6 signatures.  Assumed Java 6.
      */
-    private static final class Linux
+    static final class Linux
     extends Unix<LinuxSystem> {
         private Linux() {
             super();
@@ -596,7 +593,7 @@ public abstract class ProcessTreeKiller {
     /*
      * This class specifies class file version 49.0 but uses Java 6 signatures.  Assumed Java 6.
      */
-    private static abstract class Unix<S extends UnixSystem<?>>
+    static abstract class Unix<S extends UnixSystem<?>>
     extends ProcessTreeKiller {
         private static final Field PID_FIELD;
         private static final Method DESTROY_PROCESS;
@@ -610,7 +607,7 @@ public abstract class ProcessTreeKiller {
         public void kill(Process proc, Map<String, String> modelEnvVars) {
             S system = this.createSystem();
             if (proc != null) {
-                Iterator<P> p;
+                UnixProcess p;
                 try {
                     p = ((UnixSystem)system).get((Integer)PID_FIELD.get(proc));
                 }
@@ -686,7 +683,7 @@ public abstract class ProcessTreeKiller {
                 return new File(new File("/proc/" + this.getPid()), relativePath);
             }
 
-            public List<P> getChildren() {
+            public List<UnixProcess> getChildren() {
                 ArrayList<UnixProcess> r = new ArrayList<UnixProcess>();
                 for (UnixProcess p : this.system) {
                     if (p.getParent() != this) continue;

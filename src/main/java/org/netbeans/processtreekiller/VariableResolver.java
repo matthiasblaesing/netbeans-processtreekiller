@@ -33,7 +33,7 @@ public interface VariableResolver<V> {
 
         @Override
         public V resolve(String name) {
-            for (VariableResolver<V> r : this.resolvers) {
+            for (VariableResolver<? extends V> r : this.resolvers) {
                 V v = r.resolve(name);
                 if (v == null) continue;
                 return v;
