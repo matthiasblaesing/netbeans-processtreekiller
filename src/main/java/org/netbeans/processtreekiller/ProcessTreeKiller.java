@@ -26,6 +26,7 @@ package org.netbeans.processtreekiller;
 
 import com.sun.jna.Memory;
 import com.sun.jna.Native;
+import com.sun.jna.Platform;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import java.io.BufferedReader;
@@ -45,12 +46,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
 import org.jvnet.winp.WinProcess;
 import org.jvnet.winp.WinpException;
+import org.netbeans.processtreekiller.DarwinCLibrary.SizeT;
+import org.netbeans.processtreekiller.DarwinCLibrary.SizeTByReference;
 import org.netbeans.processtreekiller.ProcessTreeKiller.Darwin.DarwinSystem;
 import org.netbeans.processtreekiller.ProcessTreeKiller.Linux.LinuxSystem;
 import org.netbeans.processtreekiller.ProcessTreeKiller.Solaris.SolarisSystem;
@@ -81,26 +83,18 @@ public abstract class ProcessTreeKiller {
         this.kill(null, modelEnvVars);
     }
 
-    public static EnvVars createCookie() {
-        return new EnvVars("HUDSON_COOKIE", UUID.randomUUID().toString());
-    }
-
     public static ProcessTreeKiller get() {
         if (!enabled) {
             return DEFAULT;
         }
         try {
-            if (File.pathSeparatorChar == ';') {
+            if (Platform.isWindows()) {
                 return new Windows();
-            }
-            String os = Util.fixNull(System.getProperty("os.name"));
-            if (os.equals("Linux")) {
+            } else if (Platform.isLinux()) {
                 return new Linux();
-            }
-            if (os.equals("SunOS")) {
+            } else if (Platform.isSolaris()) {
                 return new Solaris();
-            }
-            if (os.equals("Mac OS X")) {
+            } else if (Platform.isMac()) {
                 return new Darwin();
             }
         }
@@ -130,9 +124,7 @@ public abstract class ProcessTreeKiller {
         private static final int KERN_PROC_ALL = 0;
         private static final int KERN_ARGMAX = 8;
         private static final int KERN_PROCARGS2 = 49;
-        private static final int ENOMEM = 12;
-        private static final int sizeOfInt = Native.getNativeSize(Integer.TYPE);
-        private static int[] MIB_PROC_ALL = new int[]{1, 14, 0};
+        private static final int[] MIB_PROC_ALL = new int[]{CTL_KERN, KERN_PROC, KERN_PROC_ALL};
 
         private Darwin() {
             super();
@@ -185,17 +177,17 @@ public abstract class ProcessTreeKiller {
 
             private void parse() {
                 try {
-                    this.arguments = new ArrayList<String>();
+                    this.arguments = new ArrayList<>();
                     this.envVars = new EnvVars();
-                    IntByReference _ = new IntByReference();
+                    SizeT newLen = new SizeT();
                     IntByReference argmaxRef = new IntByReference(0);
-                    IntByReference size = new IntByReference(sizeOfInt);
-                    if (GNUCLibrary.LIBC.sysctl(new int[]{1, 8}, 2, argmaxRef.getPointer(), size, Pointer.NULL, _) != 0) {
-                        throw new IOException("Failed to get kernl.argmax: " + GNUCLibrary.LIBC.strerror(Native.getLastError()));
+                    SizeTByReference size = new SizeTByReference();
+                    size.setValue(4 /* sizeof(int) */);
+                    if (DarwinCLibrary.LIBC.sysctl(new int[]{CTL_KERN, KERN_ARGMAX}, 2, argmaxRef.getPointer(), size, null, newLen) != 0) {
+                        throw new IOException("Failed to get kernl.argmax: " + DarwinCLibrary.LIBC.strerror(Native.getLastError()));
                     }
                     int argmax = argmaxRef.getValue();
-                    class StringArrayMemory
-                    extends Memory {
+                    class StringArrayMemory extends Memory {
                         private long offset;
 
                         StringArrayMemory(long l) {
@@ -205,7 +197,7 @@ public abstract class ProcessTreeKiller {
 
                         int readInt() {
                             int r = this.getInt(this.offset);
-                            this.offset += (long)sizeOfInt;
+                            this.offset += 4;
                             return r;
                         }
 
@@ -216,22 +208,22 @@ public abstract class ProcessTreeKiller {
                         String readString() {
                             byte ch;
                             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            while ((ch = this.getByte(this.offset++)) != 0) {
+                            while ((ch = this.getByte(this.offset++)) != 0 && this.offset < size()) {
                                 baos.write(ch);
                             }
-                            return baos.toString();
+                            return Native.toString(baos.toByteArray());
                         }
 
                         void skip0() {
-                            while (this.getByte(this.offset) == 0) {
+                            while (this.getByte(this.offset) == 0 && this.offset < size()) {
                                 ++this.offset;
                             }
                         }
                     }
                     StringArrayMemory m = new StringArrayMemory(argmax);
                     size.setValue(argmax);
-                    if (GNUCLibrary.LIBC.sysctl(new int[]{1, 49, this.pid}, 3, (Pointer)m, size, Pointer.NULL, _) != 0) {
-                        throw new IOException("Failed to obtain ken.procargs2: " + GNUCLibrary.LIBC.strerror(Native.getLastError()));
+                    if (DarwinCLibrary.LIBC.sysctl(new int[]{CTL_KERN, KERN_PROCARGS2, this.pid}, 3, m, size, null, newLen) != 0) {
+                        throw new IOException("Failed to obtain ken.procargs2: " + DarwinCLibrary.LIBC.strerror(Native.getLastError()));
                     }
                     int argc = m.readInt();
                     String args0 = m.readString();
@@ -259,23 +251,25 @@ public abstract class ProcessTreeKiller {
             DarwinSystem() {
                 try {
                     Memory m;
-                    IntByReference size;
-                    block5 : {
-                        IntByReference _ = new IntByReference(sizeOfInt);
-                        size = new IntByReference(sizeOfInt);
+                    SizeTByReference size;
+                    OUTER : {
+                        SizeT newLen = new SizeT();
+                        size = new SizeTByReference();
                         int nRetry = 0;
                         do {
-                            if (GNUCLibrary.LIBC.sysctl(MIB_PROC_ALL, 3, Pointer.NULL, size, Pointer.NULL, _) != 0) {
-                                throw new IOException("Failed to obtain memory requirement: " + GNUCLibrary.LIBC.strerror(Native.getLastError()));
+                            if (DarwinCLibrary.LIBC.sysctl(MIB_PROC_ALL, 3, null, size, null, newLen) != 0) {
+                                throw new IOException("Failed to obtain memory requirement: " + DarwinCLibrary.LIBC.strerror(Native.getLastError()));
                             }
-                            m = new Memory((long)size.getValue());
-                            if (GNUCLibrary.LIBC.sysctl(MIB_PROC_ALL, 3, (Pointer)m, size, Pointer.NULL, _) == 0) break block5;
+                            m = new Memory(size.getValue());
+                            if (DarwinCLibrary.LIBC.sysctl(MIB_PROC_ALL, 3, m, size, null, newLen) == 0) {
+                                break OUTER;
+                            }
                         } while (Native.getLastError() == 12 && nRetry++ < 16);
-                        throw new IOException("Failed to call kern.proc.all: " + GNUCLibrary.LIBC.strerror(Native.getLastError()));
+                        throw new IOException("Failed to call kern.proc.all: " + DarwinCLibrary.LIBC.strerror(Native.getLastError()));
                     }
-                    int count = size.getValue() / 648;
+                    int count = (int) (size.getValue() / sizeOf_kinfo_proc);
                     LOGGER.log(Level.FINE, "Found {0} processes", count);
-                    for (int base = 0; base < size.getValue(); base += 648) {
+                    for (int base = 0; base < size.getValue(); base += sizeOf_kinfo_proc) {
                         int pid = m.getInt((long)(base + 40));
                         int ppid = m.getInt((long)(base + 560));
                         this.processes.put(pid, new DarwinProcess(this, pid, ppid));
@@ -299,8 +293,7 @@ public abstract class ProcessTreeKiller {
             return new SolarisSystem();
         }
 
-        static class SolarisProcess
-        extends Unix.UnixProcess<SolarisProcess> {
+        static class SolarisProcess extends Unix.UnixProcess<SolarisProcess> {
             private final int pid;
             private final int ppid;
             private final int envp;
@@ -607,17 +600,7 @@ public abstract class ProcessTreeKiller {
                     destroyMethod = clazz.getDeclaredMethod("destroyProcess", Integer.TYPE, Boolean.TYPE);
                 }
             }
-            catch (ClassNotFoundException e) {
-                LinkageError x = new LinkageError();
-                x.initCause(e);
-                throw x;
-            }
-            catch (NoSuchFieldException e) {
-                LinkageError x = new LinkageError();
-                x.initCause(e);
-                throw x;
-            }
-            catch (NoSuchMethodException e) {
+            catch (ClassNotFoundException | NoSuchFieldException | NoSuchMethodException e) {
                 LinkageError x = new LinkageError();
                 x.initCause(e);
                 throw x;
@@ -686,18 +669,20 @@ public abstract class ProcessTreeKiller {
         }
 
         static abstract class ProcfsUnixSystem<P extends UnixProcess<P>> extends UnixSystem<P> {
+            @SuppressWarnings("OverridableMethodCallInConstructor")
             ProcfsUnixSystem() {
-                File[] processes = new File("/proc").listFiles(new FileFilter(){
+                File[] localProcesses = new File("/proc").listFiles(new FileFilter(){
 
+                    @Override
                     public boolean accept(File f) {
                         return f.isDirectory();
                     }
                 });
-                if (processes == null) {
+                if (localProcesses == null) {
                     LOGGER.info("No /proc");
                     return;
                 }
-                for (File p : processes) {
+                for (File p : localProcesses) {
                     int pid;
                     try {
                         pid = Integer.parseInt(p.getName());
