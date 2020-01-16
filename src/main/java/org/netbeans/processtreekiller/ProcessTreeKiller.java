@@ -27,7 +27,6 @@ package org.netbeans.processtreekiller;
 import com.sun.jna.Memory;
 import com.sun.jna.Native;
 import com.sun.jna.Platform;
-import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -39,6 +38,9 @@ import java.io.RandomAccessFile;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -48,7 +50,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.apache.commons.io.FileUtils;
 import org.jvnet.winp.WinProcess;
 import org.jvnet.winp.WinpException;
 import org.netbeans.processtreekiller.DarwinCLibrary.SizeT;
@@ -240,7 +241,7 @@ public abstract class ProcessTreeKiller {
                         this.envVars.addLine(m.readString());
                     }
                 }
-                catch (IOException _) {
+                catch (IOException igored) {
                     // empty catch block
                 }
             }
@@ -499,7 +500,7 @@ public abstract class ProcessTreeKiller {
                 }
                 this.arguments = new ArrayList<>();
                 try {
-                    byte[] cmdline = FileUtils.readFileToByteArray((File)this.getFile("cmdline"));
+                    byte[] cmdline = Files.readAllBytes(this.getPath("cmdline"));
                     int pos = 0;
                     for (int i = 0; i < cmdline.length; ++i) {
                         byte b = cmdline[i];
@@ -522,7 +523,7 @@ public abstract class ProcessTreeKiller {
                 }
                 this.envVars = new EnvVars();
                 try {
-                    byte[] environ = FileUtils.readFileToByteArray((File)this.getFile("environ"));
+                    byte[] environ = Files.readAllBytes(this.getPath("environ"));
                     int pos = 0;
                     for (int i = 0; i < environ.length; ++i) {
                         byte b = environ[i];
@@ -624,6 +625,10 @@ public abstract class ProcessTreeKiller {
 
             protected final File getFile(String relativePath) {
                 return new File(new File("/proc/" + this.getPid()), relativePath);
+            }
+
+            protected final Path getPath(String relativePath) {
+                return Paths.get("/proc/", Integer.toString(this.getPid()), relativePath);
             }
 
             public List<UnixProcess> getChildren() {
