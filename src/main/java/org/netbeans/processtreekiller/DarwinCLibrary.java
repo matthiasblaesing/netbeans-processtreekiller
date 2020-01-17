@@ -2,6 +2,7 @@
  * The MIT License
  *
  * Copyright (c) 2004-2009, Sun Microsystems, Inc., Kohsuke Kawaguchi
+ * Copyright (c) 2020, Matthias Bläsing
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +33,13 @@ import com.sun.jna.ptr.ByReference;
 
 public interface DarwinCLibrary extends Library {
     public static final DarwinCLibrary LIBC = Native.load("c", DarwinCLibrary.class);
+
+    public static final int sizeOf_kinfo_proc = 648;
+    public static final int CTL_KERN = 1;
+    public static final int KERN_PROC = 14;
+    public static final int KERN_PROC_ALL = 0;
+    public static final int KERN_ARGMAX = 8;
+    public static final int KERN_PROCARGS2 = 49;
 
     public String strerror(int var1);
 

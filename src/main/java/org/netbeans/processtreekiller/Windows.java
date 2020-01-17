@@ -22,60 +22,46 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
 package org.netbeans.processtreekiller;
 
-import java.util.Collection;
 import java.util.Map;
+import org.jvnet.winp.WinProcess;
+import org.jvnet.winp.WinpException;
 
-public interface VariableResolver<V> {
-    @SuppressWarnings("Convert2Lambda")
-    public static final VariableResolver NONE = new VariableResolver(){
+final class Windows extends ProcessTreeKiller {
 
-        @Override
-        public Object resolve(String name) {
-            return null;
+    Windows() {
+    }
+
+    @Override
+    public void kill(Process proc, Map<String, String> modelEnvVars) {
+        if (proc != null) {
+            new WinProcess(proc).killRecursively();
         }
-    };
-
-    public V resolve(String var1);
-
-    public static final class Union<V> implements VariableResolver<V> {
-        private final VariableResolver<? extends V>[] resolvers;
-
-        public Union(VariableResolver<? extends V> ... resolvers) {
-            this.resolvers = (VariableResolver[])resolvers.clone();
-        }
-
-        public Union(Collection<? extends VariableResolver<? extends V>> resolvers) {
-            this.resolvers = resolvers.toArray(new VariableResolver[0]);
-        }
-
-        @Override
-        public V resolve(String name) {
-            for (VariableResolver<? extends V> r : this.resolvers) {
-                V v = r.resolve(name);
-                if (v != null) {
-                    return v;
+        if (modelEnvVars != null) {
+            for (WinProcess p : WinProcess.all()) {
+                boolean matched;
+                if (p.getPid() < 10) {
+                    continue;
                 }
+                try {
+                    matched = this.hasMatchingEnvVars(p.getEnvironmentVariables(), modelEnvVars);
+                } catch (WinpException e) {
+                    continue;
+                }
+                if (!matched) {
+                    continue;
+                }
+                p.killRecursively();
             }
-            return null;
         }
     }
 
-    public static final class ByMap<V> implements VariableResolver<V> {
-
-        private final Map<String, V> data;
-
-        public ByMap(Map<String, V> data) {
-            this.data = data;
+    static {
+        if (System.getProperty("winp.folder.preferred") == null) {
+            String userhome = System.getProperty("netbeans.user");
+            System.setProperty("winp.folder.preferred", userhome);
         }
-
-        @Override
-        public V resolve(String name) {
-            return this.data.get(name);
-        }
+        WinProcess.enableDebugPrivilege();
     }
-
 }
-

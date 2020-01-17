@@ -24,49 +24,43 @@
  */
 package org.netbeans.processtreekiller;
 
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.IOException;
+import java.util.logging.Logger;
 
-public class Util {
+abstract class ProcfsUnixSystem<P extends UnixProcess<P>> extends UnixSystem<P> {
 
-    private static final Pattern VARIABLE = Pattern.compile("\\$([A-Za-z0-9_]+|\\{[A-Za-z0-9_]+\\}|\\$)");
+    private static final Logger LOGGER = Logger.getLogger(ProcfsUnixSystem.class.getName());
 
-    public static String replaceMacro(String s, Map<String, String> properties) {
-        return replaceMacro(s, new VariableResolver.ByMap<>(properties));
-    }
+    @SuppressWarnings("OverridableMethodCallInConstructor")
+    ProcfsUnixSystem() {
+        File[] localProcesses = new File("/proc").listFiles(new FileFilter() {
 
-    public static String replaceMacro(String s, VariableResolver<String> resolver) {
-        if (s == null) {
-            return null;
-        }
-        int idx = 0;
-        Matcher m;
-        while ((m = VARIABLE.matcher(s)).find(idx)) {
-            String value;
-            String key = m.group().substring(1);
-            if (key.charAt(0) == '$') {
-                value = "$";
-            } else {
-                if (key.charAt(0) == '{') {
-                    key = key.substring(1, key.length() - 1);
-                }
-                value = resolver.resolve(key);
+            @Override
+            public boolean accept(File f) {
+                return f.isDirectory();
             }
-            if (value == null) {
-                idx = m.end();
+        });
+        if (localProcesses == null) {
+            LOGGER.info("No /proc");
+            return;
+        }
+        for (File p : localProcesses) {
+            int pid;
+            try {
+                pid = Integer.parseInt(p.getName());
+            } catch (NumberFormatException e) {
                 continue;
             }
-            s = s.substring(0, m.start()) + value + s.substring(m.end());
-            idx = m.start() + value.length();
+            try {
+                this.processes.put(pid, this.createProcess(pid));
+            } catch (IOException e) {
+                // empty catch block
+            }
         }
-        return s;
     }
 
-    public static String fixNull(String s) {
-        if (s == null) {
-            return "";
-        }
-        return s;
-    }
+    protected abstract P createProcess(int var1) throws IOException;
+
 }
