@@ -72,12 +72,16 @@ public interface DarwinCLibrary extends Library {
             switch (Native.SIZE_T_SIZE) {
                 case 1:
                     getPointer().setByte(0, (byte) value);
+                    return;
                 case 2:
                     getPointer().setShort(0, (short) value);
+                    return;
                 case 4:
                     getPointer().setInt(0, (int) value);
+                    return;
                 case 8:
                     getPointer().setLong(0, (long) value);
+                    return;
             }
             throw new IllegalStateException("Unsupported SIZE_T size: " + Native.SIZE_T_SIZE);
         }
